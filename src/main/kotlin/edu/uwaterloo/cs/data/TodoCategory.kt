@@ -1,6 +1,6 @@
-package data
+package edu.uwaterloo.cs.data
 
-import data.TodoCategories.clientDefault
+import edu.uwaterloo.cs.data.TodoCategories.clientDefault
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModel
 import kotlinx.datetime.*
 import kotlinx.datetime.TimeZone

@@ -1,6 +1,6 @@
 package edu.uwaterloo.cs.routes
 
-import data.*
+import edu.uwaterloo.cs.data.*
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModel
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModificationModel
 import io.ktor.http.*
