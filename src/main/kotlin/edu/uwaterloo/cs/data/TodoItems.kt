@@ -11,5 +11,5 @@ object TodoItems: IntIdTable(name = "TodoItems", columnName = "Id") {
     val importance: Column<Int> = integer("Importance")
     val deadline: Column<Int?> = integer("Deadline").nullable()
     val modifiedTime: Column<Long> = long("ModifiedTime").index()
-    val categoryId: Column<UUID> = uuid("categoryId")
+    var categoryId: Column<UUID> = uuid("categoryId")
 }

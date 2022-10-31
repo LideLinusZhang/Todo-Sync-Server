@@ -18,6 +18,7 @@ import io.ktor.client.statement.*
 import kotlin.test.*
 import io.ktor.server.testing.*
 import edu.uwaterloo.cs.plugins.*
+import io.ktor.client.call.body
 
 class ApplicationTest {
     @Test
