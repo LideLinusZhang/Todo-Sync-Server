@@ -19,7 +19,13 @@ fun Route.categoryRouting() {
             }
         }
         post {
-            val todoCategoryModel = call.receive<TodoCategoryModel>()
+            val todoCategoryModel: TodoCategoryModel
+
+            try {
+                todoCategoryModel = call.receive()
+            } catch (_: ContentTransformationException) {
+                return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+            }
 
             DataFactory.transaction {
                 if (!TodoCategories.select { TodoCategories.name eq todoCategoryModel.name }.empty())
@@ -36,12 +42,13 @@ fun Route.categoryRouting() {
             }
         }
         post("{?id}") {
-            val todoCategoryModel = call.receive<TodoCategoryModificationModel>()
+            val todoCategoryModel: TodoCategoryModificationModel
             val uniqueId: UUID
 
             try {
+                todoCategoryModel = call.receive()
                 uniqueId = UUID.fromString(call.parameters["id"])
-            } catch (_: IllegalArgumentException) {
+            } catch (_: RuntimeException) {
                 return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
             }
 
