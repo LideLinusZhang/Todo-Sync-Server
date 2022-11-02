@@ -16,11 +16,11 @@ import java.util.*
 
 fun Route.itemRouting() {
     route("/item") {
-        get("categoryUniqueId={id?}") {
+        get("{categoryUniqueId?}") {
             val uniqueId: UUID
 
             try {
-                uniqueId = UUID.fromString(call.parameters["id"])
+                uniqueId = UUID.fromString(call.parameters["categoryUniqueId"])
             } catch (_: IllegalArgumentException) {
                 return@get call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
             }
@@ -35,7 +35,7 @@ fun Route.itemRouting() {
                     call.respond(TodoItem.find { TodoItems.categoryId eq uniqueId }.notForUpdate().map { it.toModel() })
             }
         }
-        post("categoryUniqueId={id?}") {
+        post("{categoryUniqueId?}") {
             val todoItemModel: TodoItemModel
 
             try {
