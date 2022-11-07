@@ -24,7 +24,13 @@ object DataFactory {
 
     private fun createSchema() {
         org.jetbrains.exposed.sql.transactions.transaction {
-            SchemaUtils.createMissingTablesAndColumns(TodoCategories, TodoItems)
+            SchemaUtils.createMissingTablesAndColumns(
+                TodoCategories,
+                TodoItems,
+                Users,
+                TodoItemOwnerships,
+                TodoCategoryOwnerships
+            )
         }
     }
 
