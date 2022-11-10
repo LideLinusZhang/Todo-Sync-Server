@@ -49,6 +49,7 @@ fun Route.itemRouting() {
                     name = todoItemModel.name
                     description = todoItemModel.description
                     importance = todoItemModel.importance
+                    favoured = todoItemModel.favoured
                     categoryId = todoItemModel.categoryId
                     modifiedTime = todoItemModel.modifiedTime
                     deadline = todoItemModel.deadline
@@ -84,6 +85,7 @@ fun Route.itemRouting() {
                         existingItem.deadline = todoItemModel.deadline ?: existingItem.deadline
                         existingItem.description = todoItemModel.description ?: existingItem.description
                         existingItem.importance = todoItemModel.importance ?: existingItem.importance
+                        existingItem.favoured = todoItemModel.favoured ?: existingItem.favoured
                         existingItem.modifiedTime = todoItemModel.modifiedTime
 
                         call.respondText("Item modified successfully.", status = HttpStatusCode.Accepted)

@@ -14,13 +14,14 @@ class TodoItem(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<TodoItem>(TodoItems)
 
     val uniqueId by TodoItems.uniqueId.clientDefault { UUID.randomUUID() }
+    var categoryId by TodoItems.categoryId
     var name by TodoItems.name
     var description by TodoItems.description
+    var favoured by TodoItems.favoured
     var importance: ItemImportance by TodoItems.importance.transform(
         { it.ordinal },
         { ItemImportance.values()[it] }
     )
-    var categoryId by TodoItems.categoryId
     var modifiedTime: LocalDateTime by TodoItems.modifiedTime
         .clientDefault { Clock.System.now().epochSeconds }
         .transform(
@@ -33,5 +34,5 @@ class TodoItem(id: EntityID<Int>) : IntEntity(id) {
     )
 
     fun toModel(): TodoItemModel =
-        TodoItemModel(uniqueId, name, description, categoryId, importance, deadline, modifiedTime)
+        TodoItemModel(uniqueId, categoryId, name, description, favoured, importance, deadline, modifiedTime)
 }
