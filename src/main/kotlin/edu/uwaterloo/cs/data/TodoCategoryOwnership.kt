@@ -7,6 +7,6 @@ import org.jetbrains.exposed.dao.id.EntityID
 class TodoCategoryOwnership(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<TodoCategoryOwnership>(TodoCategoryOwnerships)
 
-    val userId by TodoCategoryOwnerships.userId
-    val categoryUniqueId by TodoCategoryOwnerships.categoryUniqueId
+    var userId by TodoCategoryOwnerships.userId
+    var categoryUniqueId by TodoCategoryOwnerships.categoryUniqueId
 }

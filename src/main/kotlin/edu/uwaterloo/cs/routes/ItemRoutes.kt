@@ -8,6 +8,7 @@ import edu.uwaterloo.cs.todo.lib.TodoItemModel
 import edu.uwaterloo.cs.todo.lib.TodoItemModificationModel
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -16,103 +17,106 @@ import java.util.*
 
 fun Route.itemRouting() {
     route("/item") {
-        get("{categoryUniqueId?}") {
-            val uniqueId: UUID
+        authenticate("auth-digest") {
+            get("{categoryUniqueId?}") {
+                val uniqueId: UUID
 
-            try {
-                uniqueId = UUID.fromString(call.parameters["categoryUniqueId"])
-            } catch (_: IllegalArgumentException) {
-                return@get call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
-            }
+                try {
+                    uniqueId = UUID.fromString(call.parameters["categoryUniqueId"])
+                } catch (_: IllegalArgumentException) {
+                    return@get call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                }
 
-            DataFactory.transaction {
-                if (TodoCategories.select { TodoCategories.uniqueId eq uniqueId }.empty())
-                    call.respondText(
-                        "Category with the provided unique ID does not exist",
-                        status = HttpStatusCode.BadRequest
-                    )
-                else
-                    call.respond(TodoItem.find { TodoItems.categoryId eq uniqueId }.notForUpdate().map { it.toModel() })
-            }
-        }
-        post("{categoryUniqueId?}") {
-            val todoItemModel: TodoItemModel
-
-            try {
-                todoItemModel = call.receive()
-            } catch (_: ContentTransformationException) {
-                return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
-            }
-
-            DataFactory.transaction {
-                TodoItem.new {
-                    name = todoItemModel.name
-                    description = todoItemModel.description
-                    importance = todoItemModel.importance
-                    favoured = todoItemModel.favoured
-                    categoryId = todoItemModel.categoryId
-                    modifiedTime = todoItemModel.modifiedTime
-                    deadline = todoItemModel.deadline
+                DataFactory.transaction {
+                    if (TodoCategories.select { TodoCategories.uniqueId eq uniqueId }.empty())
+                        call.respondText(
+                            "Category with the provided unique ID does not exist",
+                            status = HttpStatusCode.BadRequest
+                        )
+                    else
+                        call.respond(
+                            TodoItem.find { TodoItems.categoryId eq uniqueId }.notForUpdate().map { it.toModel() })
                 }
             }
+            post("{categoryUniqueId?}") {
+                val todoItemModel: TodoItemModel
 
-            call.respondText("Category added successfully.", status = HttpStatusCode.Created)
-        }
-        post("{id?}") {
-            val uniqueId: UUID
-            val todoItemModel: TodoItemModificationModel
+                try {
+                    todoItemModel = call.receive()
+                } catch (_: ContentTransformationException) {
+                    return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                }
 
-            try {
-                todoItemModel = call.receive()
-                uniqueId = UUID.fromString(call.parameters["id"])
-            } catch (_: RuntimeException) {
-                return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                DataFactory.transaction {
+                    TodoItem.new {
+                        name = todoItemModel.name
+                        description = todoItemModel.description
+                        importance = todoItemModel.importance
+                        favoured = todoItemModel.favoured
+                        categoryId = todoItemModel.categoryId
+                        modifiedTime = todoItemModel.modifiedTime
+                        deadline = todoItemModel.deadline
+                    }
+                }
+
+                call.respondText("Category added successfully.", status = HttpStatusCode.Created)
             }
+            post("{id?}") {
+                val uniqueId: UUID
+                val todoItemModel: TodoItemModificationModel
 
-            DataFactory.transaction {
-                val existingItem = TodoItem.find { TodoItems.uniqueId eq uniqueId }.firstOrNull()
+                try {
+                    todoItemModel = call.receive()
+                    uniqueId = UUID.fromString(call.parameters["id"])
+                } catch (_: RuntimeException) {
+                    return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                }
 
-                if (existingItem === null)
-                    call.respondText(
-                        "Item with the provided unique ID does not exist",
-                        status = HttpStatusCode.BadRequest
-                    )
-                else {
-                    if (existingItem.modifiedTime > todoItemModel.modifiedTime)
-                        call.respondText("Item on the server is more recent", status = HttpStatusCode.NotModified)
+                DataFactory.transaction {
+                    val existingItem = TodoItem.find { TodoItems.uniqueId eq uniqueId }.firstOrNull()
+
+                    if (existingItem === null)
+                        call.respondText(
+                            "Item with the provided unique ID does not exist",
+                            status = HttpStatusCode.BadRequest
+                        )
                     else {
-                        existingItem.name = todoItemModel.name ?: existingItem.name
-                        existingItem.deadline = todoItemModel.deadline ?: existingItem.deadline
-                        existingItem.description = todoItemModel.description ?: existingItem.description
-                        existingItem.importance = todoItemModel.importance ?: existingItem.importance
-                        existingItem.favoured = todoItemModel.favoured ?: existingItem.favoured
-                        existingItem.modifiedTime = todoItemModel.modifiedTime
+                        if (existingItem.modifiedTime > todoItemModel.modifiedTime)
+                            call.respondText("Item on the server is more recent", status = HttpStatusCode.NotModified)
+                        else {
+                            existingItem.name = todoItemModel.name ?: existingItem.name
+                            existingItem.deadline = todoItemModel.deadline ?: existingItem.deadline
+                            existingItem.description = todoItemModel.description ?: existingItem.description
+                            existingItem.importance = todoItemModel.importance ?: existingItem.importance
+                            existingItem.favoured = todoItemModel.favoured ?: existingItem.favoured
+                            existingItem.modifiedTime = todoItemModel.modifiedTime
 
-                        call.respondText("Item modified successfully.", status = HttpStatusCode.Accepted)
+                            call.respondText("Item modified successfully.", status = HttpStatusCode.Accepted)
+                        }
                     }
                 }
             }
-        }
-        delete("{id?}") {
-            val uniqueId: UUID
+            delete("{id?}") {
+                val uniqueId: UUID
 
-            try {
-                uniqueId = UUID.fromString(call.parameters["id"])
-            } catch (_: IllegalArgumentException) {
-                return@delete call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
-            }
+                try {
+                    uniqueId = UUID.fromString(call.parameters["id"])
+                } catch (_: IllegalArgumentException) {
+                    return@delete call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                }
 
-            DataFactory.transaction {
-                val existingItem = TodoItem.find { TodoItems.uniqueId eq uniqueId }.firstOrNull()
+                DataFactory.transaction {
+                    val existingItem = TodoItem.find { TodoItems.uniqueId eq uniqueId }.firstOrNull()
 
-                if (existingItem === null)
-                    call.respondText(
-                        "Item with the provided unique ID does not exist",
-                        status = HttpStatusCode.BadRequest
-                    )
-                else {
-                    existingItem.delete()
-                    call.respondText("Item deleted successfully.", status = HttpStatusCode.OK)
+                    if (existingItem === null)
+                        call.respondText(
+                            "Item with the provided unique ID does not exist",
+                            status = HttpStatusCode.BadRequest
+                        )
+                    else {
+                        existingItem.delete()
+                        call.respondText("Item deleted successfully.", status = HttpStatusCode.OK)
+                    }
                 }
             }
         }
