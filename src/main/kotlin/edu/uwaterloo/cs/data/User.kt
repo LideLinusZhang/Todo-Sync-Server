@@ -12,4 +12,7 @@ class User(id: EntityID<Int>) : IntEntity(id), Principal {
     var hashedPassword: ByteArray by Users.hashedPassword.transform(
         { String(it, Charsets.UTF_8) },
         { it.toByteArray(Charsets.UTF_8) })
+
+    val categories by TodoCategory via TodoCategoryOwnerships
+    val items by TodoItem via TodoItemOwnerships
 }

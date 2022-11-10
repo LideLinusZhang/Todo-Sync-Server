@@ -1,12 +1,13 @@
 package edu.uwaterloo.cs.data
 
-import org.jetbrains.exposed.dao.id.IntIdTable
+import org.jetbrains.exposed.dao.id.UUIDTable
 import org.jetbrains.exposed.sql.Column
+import org.jetbrains.exposed.sql.ReferenceOption
 import java.util.*
 
-object TodoItems : IntIdTable(name = "TodoItems", columnName = "Id") {
-    val uniqueId: Column<UUID> = uuid("UniqueId").uniqueIndex()
-    var categoryId: Column<UUID> = uuid("categoryId").index()
+object TodoItems : UUIDTable(name = "TodoItems", columnName = "Id") {
+    val categoryId: Column<UUID> = uuid("categoryId").index()
+        .references(TodoCategories.id, onDelete = ReferenceOption.CASCADE)
     val name: Column<String> = text("Name")
     val description: Column<String> = text("Description")
     val favoured: Column<Boolean> = bool("Favoured")

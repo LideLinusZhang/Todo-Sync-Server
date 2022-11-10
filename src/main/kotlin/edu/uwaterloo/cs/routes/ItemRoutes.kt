@@ -1,9 +1,8 @@
 package edu.uwaterloo.cs.routes
 
 import edu.uwaterloo.cs.data.DataFactory
-import edu.uwaterloo.cs.data.TodoCategories
 import edu.uwaterloo.cs.data.TodoItem
-import edu.uwaterloo.cs.data.TodoItems
+import edu.uwaterloo.cs.data.User
 import edu.uwaterloo.cs.todo.lib.TodoItemModel
 import edu.uwaterloo.cs.todo.lib.TodoItemModificationModel
 import io.ktor.http.*
@@ -12,13 +11,13 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import org.jetbrains.exposed.sql.select
 import java.util.*
 
 fun Route.itemRouting() {
     route("/item") {
         authenticate("auth-digest") {
             get("{categoryUniqueId?}") {
+                val principal = call.principal<User>()!!
                 val uniqueId: UUID
 
                 try {
@@ -28,18 +27,21 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    if (TodoCategories.select { TodoCategories.uniqueId eq uniqueId }.empty())
+                    val user = User.findById(principal.id)!!
+                    val category = user.categories.find { it.id.value == uniqueId }
+
+                    if (category === null)
                         call.respondText(
                             "Category with the provided unique ID does not exist",
                             status = HttpStatusCode.BadRequest
                         )
                     else
-                        call.respond(
-                            TodoItem.find { TodoItems.categoryId eq uniqueId }.notForUpdate().map { it.toModel() })
+                        call.respond(category.items.notForUpdate().map { it.toModel() })
                 }
             }
-            post("{categoryUniqueId?}") {
+            post {
                 val todoItemModel: TodoItemModel
+                val principal = call.principal<User>()!!
 
                 try {
                     todoItemModel = call.receive()
@@ -48,7 +50,15 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    TodoItem.new {
+                    val user = User.findById(principal.id)!!
+                    val category = user.categories.find { it.id.value == todoItemModel.categoryId }
+
+                    if (category === null)
+                        call.respondText(
+                            "Category with the provided unique ID does not exist",
+                            status = HttpStatusCode.BadRequest
+                        )
+                    else TodoItem.new {
                         name = todoItemModel.name
                         description = todoItemModel.description
                         importance = todoItemModel.importance
@@ -64,6 +74,7 @@ fun Route.itemRouting() {
             post("{id?}") {
                 val uniqueId: UUID
                 val todoItemModel: TodoItemModificationModel
+                val principal = call.principal<User>()!!
 
                 try {
                     todoItemModel = call.receive()
@@ -73,31 +84,32 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val existingItem = TodoItem.find { TodoItems.uniqueId eq uniqueId }.firstOrNull()
+                    val user = User.findById(principal.id)!!
+                    val existingItem = user.items.find { it.id.value == uniqueId }
 
                     if (existingItem === null)
                         call.respondText(
                             "Item with the provided unique ID does not exist",
                             status = HttpStatusCode.BadRequest
                         )
+                    else if (existingItem.modifiedTime > todoItemModel.modifiedTime)
+                        call.respondText("Item on the server is more recent", status = HttpStatusCode.NotModified)
                     else {
-                        if (existingItem.modifiedTime > todoItemModel.modifiedTime)
-                            call.respondText("Item on the server is more recent", status = HttpStatusCode.NotModified)
-                        else {
-                            existingItem.name = todoItemModel.name ?: existingItem.name
-                            existingItem.deadline = todoItemModel.deadline ?: existingItem.deadline
-                            existingItem.description = todoItemModel.description ?: existingItem.description
-                            existingItem.importance = todoItemModel.importance ?: existingItem.importance
-                            existingItem.favoured = todoItemModel.favoured ?: existingItem.favoured
-                            existingItem.modifiedTime = todoItemModel.modifiedTime
+                        existingItem.name = todoItemModel.name ?: existingItem.name
+                        existingItem.deadline = todoItemModel.deadline ?: existingItem.deadline
+                        existingItem.description = todoItemModel.description ?: existingItem.description
+                        existingItem.importance = todoItemModel.importance ?: existingItem.importance
+                        existingItem.favoured = todoItemModel.favoured ?: existingItem.favoured
+                        existingItem.modifiedTime = todoItemModel.modifiedTime
 
-                            call.respondText("Item modified successfully.", status = HttpStatusCode.Accepted)
-                        }
+                        call.respondText("Item modified successfully.", status = HttpStatusCode.Accepted)
                     }
+
                 }
             }
             delete("{id?}") {
                 val uniqueId: UUID
+                val principal = call.principal<User>()!!
 
                 try {
                     uniqueId = UUID.fromString(call.parameters["id"])
@@ -106,7 +118,8 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val existingItem = TodoItem.find { TodoItems.uniqueId eq uniqueId }.firstOrNull()
+                    val user = User.findById(principal.id)!!
+                    val existingItem = user.items.find { it.id.value == uniqueId }
 
                     if (existingItem === null)
                         call.respondText(

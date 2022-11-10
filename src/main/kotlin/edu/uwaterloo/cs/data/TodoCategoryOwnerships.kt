@@ -1,10 +1,11 @@
 package edu.uwaterloo.cs.data
 
-import org.jetbrains.exposed.dao.id.IntIdTable
-import org.jetbrains.exposed.sql.Column
-import java.util.*
+import org.jetbrains.exposed.sql.ReferenceOption
+import org.jetbrains.exposed.sql.Table
 
-object TodoCategoryOwnerships : IntIdTable(name = "TodoCategoryOwnerships", columnName = "Id") {
-    val userId: Column<Int> = integer("UserId").index()
-    val categoryUniqueId: Column<UUID> = uuid("categoryUniqueId").index()
+object TodoCategoryOwnerships : Table(name = "TodoCategoryOwnerships") {
+    val user = reference("User", Users, onDelete = ReferenceOption.CASCADE)
+    val category = reference("Category", TodoCategories, onDelete = ReferenceOption.CASCADE)
+
+    override val primaryKey = PrimaryKey(user, category)
 }

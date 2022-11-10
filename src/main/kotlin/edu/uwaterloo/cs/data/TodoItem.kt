@@ -5,15 +5,14 @@ import edu.uwaterloo.cs.todo.lib.ItemImportance
 import edu.uwaterloo.cs.todo.lib.TodoItemModel
 import kotlinx.datetime.*
 import kotlinx.datetime.TimeZone
-import org.jetbrains.exposed.dao.IntEntity
-import org.jetbrains.exposed.dao.IntEntityClass
+import org.jetbrains.exposed.dao.UUIDEntity
+import org.jetbrains.exposed.dao.UUIDEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import java.util.*
 
-class TodoItem(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<TodoItem>(TodoItems)
+class TodoItem(id: EntityID<UUID>) : UUIDEntity(id) {
+    companion object : UUIDEntityClass<TodoItem>(TodoItems)
 
-    val uniqueId by TodoItems.uniqueId.clientDefault { UUID.randomUUID() }
     var categoryId by TodoItems.categoryId
     var name by TodoItems.name
     var description by TodoItems.description
@@ -33,6 +32,8 @@ class TodoItem(id: EntityID<Int>) : IntEntity(id) {
         { if (it === null) null else LocalDate.fromEpochDays(it) }
     )
 
+    val users by User via TodoItemOwnerships
+
     fun toModel(): TodoItemModel =
-        TodoItemModel(uniqueId, categoryId, name, description, favoured, importance, deadline, modifiedTime)
+        TodoItemModel(id.value, categoryId, name, description, favoured, importance, deadline, modifiedTime)
 }

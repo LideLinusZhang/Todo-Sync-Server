@@ -1,6 +1,9 @@
 package edu.uwaterloo.cs.routes
 
-import edu.uwaterloo.cs.data.*
+import edu.uwaterloo.cs.data.DataFactory
+import edu.uwaterloo.cs.data.TodoCategory
+import edu.uwaterloo.cs.data.TodoCategoryOwnerships
+import edu.uwaterloo.cs.data.User
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModel
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModificationModel
 import io.ktor.http.*
@@ -9,26 +12,23 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.insert
 import java.util.*
 
 fun Route.categoryRouting() {
     route("/category") {
         authenticate("auth-digest") {
             get {
-                val user = call.principal<User>()!!
+                val principal = call.principal<User>()!!
 
                 DataFactory.transaction {
-                    val categoryIds = TodoCategoryOwnership.find { TodoCategoryOwnerships.userId eq user.id.value }
-                        .notForUpdate().map { it.id }
-
-                    call.respond(TodoCategory.find { TodoCategories.id inList categoryIds }
-                        .notForUpdate().map { it.toModel() })
+                    val user = User.findById(principal.id)!!
+                    call.respond(user.categories.notForUpdate().map { it.toModel() })
                 }
             }
             post {
                 val todoCategoryModel: TodoCategoryModel
-                val user = call.principal<User>()!!
+                val principal = call.principal<User>()!!
 
                 try {
                     todoCategoryModel = call.receive()
@@ -37,17 +37,22 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    if (!TodoCategories.select { TodoCategories.name eq todoCategoryModel.name }.empty())
-                        call.respondText("Category with the same name already exist.", status = HttpStatusCode.Conflict)
-                    else {
-                        TodoCategory.new {
+                    val user = User.findById(principal.id)!!
+
+                    if (user.categories.any { it.name == todoCategoryModel.name }) {
+                        call.respondText(
+                            "Category with the same name already exist.",
+                            status = HttpStatusCode.Conflict
+                        )
+                    } else {
+                        val newCategory = TodoCategory.new(todoCategoryModel.uniqueId) {
                             name = todoCategoryModel.name
                             favoured = todoCategoryModel.favoured
-                            uniqueId = todoCategoryModel.uniqueId
                         }
-                        TodoCategoryOwnership.new {
-                            userId = user.id.value
-                            categoryUniqueId = todoCategoryModel.uniqueId
+
+                        TodoCategoryOwnerships.insert {
+                            it[category] = newCategory.id
+                            it[TodoCategoryOwnerships.user] = user.id
                         }
 
                         call.respondText("Category added successfully.", status = HttpStatusCode.Created)
@@ -57,7 +62,7 @@ fun Route.categoryRouting() {
             post("{?id}") {
                 val todoCategoryModel: TodoCategoryModificationModel
                 val uniqueId: UUID
-                val user = call.principal<User>()!!
+                val principal = call.principal<User>()!!
 
                 try {
                     todoCategoryModel = call.receive()
@@ -67,18 +72,13 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val existingCategory = TodoCategory.find { TodoCategories.uniqueId eq uniqueId }.firstOrNull()
+                    val user = User.findById(principal.id)!!
+                    val existingCategory = user.categories.find { it.id.value == uniqueId }
 
                     if (existingCategory === null) {
                         call.respondText(
                             "Category with the provided unique ID does not exist",
                             status = HttpStatusCode.BadRequest
-                        )
-                    } else if (!TodoCategoryOwnership.find { TodoCategoryOwnerships.categoryUniqueId eq uniqueId }
-                            .notForUpdate().map { it.userId }.contains(user.id.value)) {
-                        call.respondText(
-                            "Accessing to the category owned by another user is denied",
-                            status = HttpStatusCode.Unauthorized
                         )
                     } else if (existingCategory.modifiedTime > todoCategoryModel.modifiedTime) {
                         call.respondText(
@@ -96,7 +96,7 @@ fun Route.categoryRouting() {
             }
             delete("{?id}") {
                 val uniqueId: UUID
-                val user = call.principal<User>()!!
+                val principal = call.principal<User>()!!
 
                 try {
                     uniqueId = UUID.fromString(call.parameters["id"])
@@ -105,23 +105,15 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val existingCategory = TodoCategory.find { TodoCategories.uniqueId eq uniqueId }.firstOrNull()
+                    val user = User.findById(principal.id)!!
+                    val existingCategory = user.categories.find { it.id.value == uniqueId }
 
-                    if (existingCategory === null)
+                    if (existingCategory === null) {
                         call.respondText(
                             "Item with the provided unique ID does not exist",
                             status = HttpStatusCode.BadRequest
                         )
-                    else if (!TodoCategoryOwnership.find { TodoCategoryOwnerships.categoryUniqueId eq uniqueId }
-                            .notForUpdate().map { it.userId }.contains(user.id.value)) {
-                        call.respondText(
-                            "Accessing to the category owned by another user is denied",
-                            status = HttpStatusCode.Unauthorized
-                        )
                     } else {
-                        val existingItem = TodoItem.find { TodoItems.categoryId eq uniqueId }
-
-                        existingItem.forEach { it.delete() }
                         existingCategory.delete()
 
                         call.respondText(
