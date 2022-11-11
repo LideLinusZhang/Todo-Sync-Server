@@ -3,6 +3,7 @@ package edu.uwaterloo.cs.routes
 import edu.uwaterloo.cs.data.DataFactory
 import edu.uwaterloo.cs.data.TodoItem
 import edu.uwaterloo.cs.data.User
+import edu.uwaterloo.cs.data.Users
 import edu.uwaterloo.cs.todo.lib.TodoItemModel
 import edu.uwaterloo.cs.todo.lib.TodoItemModificationModel
 import io.ktor.http.*
@@ -17,7 +18,7 @@ fun Route.itemRouting() {
     authenticate("auth-digest") {
         route("/item") {
             get("{categoryUniqueId?}") {
-                val principal = call.principal<User>()!!
+                val principal = call.principal<UserIdPrincipal>()!!
                 val uniqueId: UUID
 
                 try {
@@ -27,7 +28,7 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.findById(principal.id)!!
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
                     val category = user.categories.find { it.id.value == uniqueId }
 
                     if (category === null)
@@ -41,7 +42,7 @@ fun Route.itemRouting() {
             }
             post {
                 val todoItemModel: TodoItemModel
-                val principal = call.principal<User>()!!
+                val principal = call.principal<UserIdPrincipal>()!!
 
                 try {
                     todoItemModel = call.receive()
@@ -50,7 +51,7 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.findById(principal.id)!!
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
                     val category = user.categories.find { it.id.value == todoItemModel.categoryId }
 
                     if (category === null)
@@ -74,7 +75,7 @@ fun Route.itemRouting() {
             post("{id?}") {
                 val uniqueId: UUID
                 val todoItemModel: TodoItemModificationModel
-                val principal = call.principal<User>()!!
+                val principal = call.principal<UserIdPrincipal>()!!
 
                 try {
                     todoItemModel = call.receive()
@@ -84,7 +85,7 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.findById(principal.id)!!
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
                     val existingItem = user.items.find { it.id.value == uniqueId }
 
                     if (existingItem === null)
@@ -109,7 +110,7 @@ fun Route.itemRouting() {
             }
             delete("{id?}") {
                 val uniqueId: UUID
-                val principal = call.principal<User>()!!
+                val principal = call.principal<UserIdPrincipal>()!!
 
                 try {
                     uniqueId = UUID.fromString(call.parameters["id"])
@@ -118,7 +119,7 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.findById(principal.id)!!
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
                     val existingItem = user.items.find { it.id.value == uniqueId }
 
                     if (existingItem === null)

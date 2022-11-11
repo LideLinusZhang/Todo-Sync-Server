@@ -1,9 +1,6 @@
 package edu.uwaterloo.cs.routes
 
-import edu.uwaterloo.cs.data.DataFactory
-import edu.uwaterloo.cs.data.TodoCategory
-import edu.uwaterloo.cs.data.TodoCategoryOwnerships
-import edu.uwaterloo.cs.data.User
+import edu.uwaterloo.cs.data.*
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModel
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModificationModel
 import io.ktor.http.*
@@ -19,16 +16,16 @@ fun Route.categoryRouting() {
     authenticate("auth-digest") {
         route("/category") {
             get {
-                val principal = call.principal<User>()!!
+                val principal = call.principal<UserIdPrincipal>()!!
 
                 DataFactory.transaction {
-                    val user = User.findById(principal.id)!!
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
                     call.respond(user.categories.notForUpdate().map { it.toModel() })
                 }
             }
             post {
                 val todoCategoryModel: TodoCategoryModel
-                val principal = call.principal<User>()!!
+                val principal = call.principal<UserIdPrincipal>()!!
 
                 try {
                     todoCategoryModel = call.receive()
@@ -37,7 +34,7 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.findById(principal.id)!!
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
 
                     if (user.categories.any { it.name == todoCategoryModel.name }) {
                         call.respondText(
@@ -62,7 +59,7 @@ fun Route.categoryRouting() {
             post("{?id}") {
                 val todoCategoryModel: TodoCategoryModificationModel
                 val uniqueId: UUID
-                val principal = call.principal<User>()!!
+                val principal = call.principal<UserIdPrincipal>()!!
 
                 try {
                     todoCategoryModel = call.receive()
@@ -72,7 +69,7 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.findById(principal.id)!!
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
                     val existingCategory = user.categories.find { it.id.value == uniqueId }
 
                     if (existingCategory === null) {
@@ -96,7 +93,7 @@ fun Route.categoryRouting() {
             }
             delete("{?id}") {
                 val uniqueId: UUID
-                val principal = call.principal<User>()!!
+                val principal = call.principal<UserIdPrincipal>()!!
 
                 try {
                     uniqueId = UUID.fromString(call.parameters["id"])
@@ -105,7 +102,7 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.findById(principal.id)!!
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
                     val existingCategory = user.categories.find { it.id.value == uniqueId }
 
                     if (existingCategory === null) {

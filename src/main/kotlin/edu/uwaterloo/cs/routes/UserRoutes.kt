@@ -38,9 +38,10 @@ fun Route.userRouting() {
         authenticate("auth-digest") {
             post("/change_password") {
                 val newHashedPassword: ByteArray = call.receive()
-                val principal = call.principal<User>()!!
+                val principal = call.principal<UserIdPrincipal>()!!
+                val user = User.find { Users.name eq principal.name }.notForUpdate().first()
 
-                DataFactory.transaction { User.findById(principal.id)?.hashedPassword = newHashedPassword }
+                DataFactory.transaction { user.hashedPassword = newHashedPassword }
                 return@post call.respondText("Password changed successfully", status = HttpStatusCode.OK)
             }
             post("/login") {
