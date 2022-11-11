@@ -15,7 +15,7 @@ object DataFactory {
 
     private fun connect() {
         val config = HikariConfig()
-        config.jdbcUrl = "jdbc:h2:./h2data"
+        config.jdbcUrl = "jdbc:h2:./h2data;MODE=MySQL"
         config.driverClassName = "org.h2.Driver"
         config.validate()
 

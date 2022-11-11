@@ -22,7 +22,7 @@ fun Route.userRouting() {
                 return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
             }
 
-            if (DataFactory.transaction { User.find { Users.name eq userModel.name } }.empty()) {
+            if (DataFactory.transaction { User.find { Users.name eq userModel.name }.empty() }) {
                 DataFactory.transaction {
                     User.new {
                         name = userModel.name
