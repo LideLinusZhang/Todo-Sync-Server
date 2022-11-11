@@ -1,9 +1,6 @@
 package edu.uwaterloo.cs.routes
 
-import edu.uwaterloo.cs.data.DataFactory
-import edu.uwaterloo.cs.data.TodoItem
-import edu.uwaterloo.cs.data.User
-import edu.uwaterloo.cs.data.Users
+import edu.uwaterloo.cs.data.*
 import edu.uwaterloo.cs.todo.lib.TodoItemModel
 import edu.uwaterloo.cs.todo.lib.TodoItemModificationModel
 import io.ktor.http.*
@@ -12,6 +9,7 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.jetbrains.exposed.sql.insert
 import java.util.*
 
 fun Route.itemRouting() {
@@ -54,19 +52,25 @@ fun Route.itemRouting() {
                     val user = User.find { Users.name eq principal.name }.notForUpdate().first()
                     val category = user.categories.find { it.id.value == todoItemModel.categoryId }
 
-                    if (category === null)
+                    if (category === null) {
                         call.respondText(
                             "Category with the provided unique ID does not exist",
                             status = HttpStatusCode.BadRequest
                         )
-                    else TodoItem.new {
-                        name = todoItemModel.name
-                        description = todoItemModel.description
-                        importance = todoItemModel.importance
-                        favoured = todoItemModel.favoured
-                        categoryId = todoItemModel.categoryId
-                        modifiedTime = todoItemModel.modifiedTime
-                        deadline = todoItemModel.deadline
+                    } else {
+                        TodoItem.new(todoItemModel.uniqueId) {
+                            name = todoItemModel.name
+                            description = todoItemModel.description
+                            importance = todoItemModel.importance
+                            favoured = todoItemModel.favoured
+                            categoryId = todoItemModel.categoryId
+                            modifiedTime = todoItemModel.modifiedTime
+                            deadline = todoItemModel.deadline
+                        }
+                        TodoItemOwnerships.insert {
+                            it[TodoItemOwnerships.user] = user.id
+                            it[item] = todoItemModel.uniqueId
+                        }
                     }
                 }
 
