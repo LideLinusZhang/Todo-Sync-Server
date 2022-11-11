@@ -16,8 +16,8 @@ import org.jetbrains.exposed.sql.insert
 import java.util.*
 
 fun Route.categoryRouting() {
-    route("/category") {
-        authenticate("auth-digest") {
+    authenticate("auth-digest") {
+        route("/category") {
             get {
                 val principal = call.principal<User>()!!
 

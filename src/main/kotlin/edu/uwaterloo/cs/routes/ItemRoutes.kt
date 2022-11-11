@@ -14,8 +14,8 @@ import io.ktor.server.routing.*
 import java.util.*
 
 fun Route.itemRouting() {
-    route("/item") {
-        authenticate("auth-digest") {
+    authenticate("auth-digest") {
+        route("/item") {
             get("{categoryUniqueId?}") {
                 val principal = call.principal<User>()!!
                 val uniqueId: UUID
