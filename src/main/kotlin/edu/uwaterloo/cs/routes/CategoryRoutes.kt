@@ -5,65 +5,84 @@ import edu.uwaterloo.cs.todo.lib.TodoCategoryModel
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModificationModel
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.insert
 import java.util.*
 
 fun Route.categoryRouting() {
-    route("/category") {
-        get {
-            DataFactory.transaction {
-                call.respond(TodoCategory.all().notForUpdate().map { it.toModel() })
-            }
-        }
-        post {
-            val todoCategoryModel: TodoCategoryModel
+    authenticate("auth-digest") {
+        route("/category") {
+            get {
+                val principal = call.principal<UserIdPrincipal>()!!
 
-            try {
-                todoCategoryModel = call.receive()
-            } catch (_: ContentTransformationException) {
-                return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
-            }
-
-            DataFactory.transaction {
-                if (!TodoCategories.select { TodoCategories.name eq todoCategoryModel.name }.empty())
-                    call.respondText("Category with the same name already exist.", status = HttpStatusCode.Conflict)
-                else {
-                    TodoCategory.new {
-                        name = todoCategoryModel.name
-                        favoured = todoCategoryModel.favoured
-                        uniqueId = todoCategoryModel.uniqueId
-                    }
-
-                    call.respondText("Category added successfully.", status = HttpStatusCode.Created)
+                DataFactory.transaction {
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    call.respond(user.categories.notForUpdate().map { it.toModel() })
                 }
             }
-        }
-        post("{?id}") {
-            val todoCategoryModel: TodoCategoryModificationModel
-            val uniqueId: UUID
+            post {
+                val todoCategoryModel: TodoCategoryModel
+                val principal = call.principal<UserIdPrincipal>()!!
 
-            try {
-                todoCategoryModel = call.receive()
-                uniqueId = UUID.fromString(call.parameters["id"])
-            } catch (_: RuntimeException) {
-                return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                try {
+                    todoCategoryModel = call.receive()
+                } catch (_: ContentTransformationException) {
+                    return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                }
+
+                DataFactory.transaction {
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+
+                    if (user.categories.any { it.name == todoCategoryModel.name }) {
+                        call.respondText(
+                            "Category with the same name already exist.",
+                            status = HttpStatusCode.Conflict
+                        )
+                    } else {
+                        val newCategory = TodoCategory.new(todoCategoryModel.uniqueId) {
+                            name = todoCategoryModel.name
+                            favoured = todoCategoryModel.favoured
+                        }
+
+                        TodoCategoryOwnerships.insert {
+                            it[category] = newCategory.id
+                            it[TodoCategoryOwnerships.user] = user.id
+                        }
+
+                        call.respondText("Category added successfully.", status = HttpStatusCode.Created)
+                    }
+                }
             }
+            post("{?id}") {
+                val todoCategoryModel: TodoCategoryModificationModel
+                val uniqueId: UUID
+                val principal = call.principal<UserIdPrincipal>()!!
 
-            DataFactory.transaction {
-                val existingCategory = TodoCategory.find { TodoItems.uniqueId eq uniqueId }.firstOrNull()
+                try {
+                    todoCategoryModel = call.receive()
+                    uniqueId = UUID.fromString(call.parameters["id"])
+                } catch (_: RuntimeException) {
+                    return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                }
 
-                if (existingCategory === null)
-                    call.respondText(
-                        "Category with the provided unique ID does not exist",
-                        status = HttpStatusCode.BadRequest
-                    )
-                else {
-                    if (existingCategory.modifiedTime > todoCategoryModel.modifiedTime)
-                        call.respondText("Category on the server is more recent", status = HttpStatusCode.NotModified)
-                    else {
+                DataFactory.transaction {
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val existingCategory = user.categories.find { it.id.value == uniqueId }
+
+                    if (existingCategory === null) {
+                        call.respondText(
+                            "Category with the provided unique ID does not exist",
+                            status = HttpStatusCode.BadRequest
+                        )
+                    } else if (existingCategory.modifiedTime > todoCategoryModel.modifiedTime) {
+                        call.respondText(
+                            "Category on the server is more recent",
+                            status = HttpStatusCode.NotModified
+                        )
+                    } else {
                         existingCategory.name = todoCategoryModel.name ?: existingCategory.name
                         existingCategory.favoured = todoCategoryModel.favoured ?: existingCategory.favoured
                         existingCategory.modifiedTime = todoCategoryModel.modifiedTime
@@ -72,31 +91,33 @@ fun Route.categoryRouting() {
                     }
                 }
             }
-        }
-        delete("{?id}") {
-            val uniqueId: UUID
+            delete("{?id}") {
+                val uniqueId: UUID
+                val principal = call.principal<UserIdPrincipal>()!!
 
-            try {
-                uniqueId = UUID.fromString(call.parameters["id"])
-            } catch (_: IllegalArgumentException) {
-                return@delete call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
-            }
+                try {
+                    uniqueId = UUID.fromString(call.parameters["id"])
+                } catch (_: IllegalArgumentException) {
+                    return@delete call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                }
 
-            DataFactory.transaction {
-                val existingCategory = TodoCategory.find { TodoCategories.uniqueId eq uniqueId }.firstOrNull()
+                DataFactory.transaction {
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val existingCategory = user.categories.find { it.id.value == uniqueId }
 
-                if (existingCategory === null)
-                    call.respondText(
-                        "Item with the provided unique ID does not exist",
-                        status = HttpStatusCode.BadRequest
-                    )
-                else {
-                    val existingItem = TodoItem.find { TodoItems.categoryId eq uniqueId }
+                    if (existingCategory === null) {
+                        call.respondText(
+                            "Item with the provided unique ID does not exist",
+                            status = HttpStatusCode.BadRequest
+                        )
+                    } else {
+                        existingCategory.delete()
 
-                    existingItem.forEach { it.delete() }
-                    existingCategory.delete()
-
-                    call.respondText("Category and associated items deleted successfully.", status = HttpStatusCode.OK)
+                        call.respondText(
+                            "Category and associated items deleted successfully.",
+                            status = HttpStatusCode.OK
+                        )
+                    }
                 }
             }
         }
