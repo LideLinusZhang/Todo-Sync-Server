@@ -13,7 +13,10 @@ import java.util.*
 class TodoItem(id: EntityID<UUID>) : UUIDEntity(id) {
     companion object : UUIDEntityClass<TodoItem>(TodoItems)
 
-    var categoryId by TodoItems.categoryId
+    var categoryId: UUID by TodoItems.categoryId.transform(
+        { EntityID(it, TodoCategories) },
+        { it.value }
+    )
     var name by TodoItems.name
     var description by TodoItems.description
     var favoured by TodoItems.favoured

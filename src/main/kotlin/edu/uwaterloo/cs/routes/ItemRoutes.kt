@@ -21,13 +21,13 @@ fun Route.itemRouting() {
 
                 try {
                     uniqueId = UUID.fromString(call.parameters["categoryUniqueId"])
-                } catch (_: IllegalArgumentException) {
+                } catch (_: Exception) {
                     return@get call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
                 }
 
                 DataFactory.transaction {
                     val user = User.find { Users.name eq principal.name }.notForUpdate().first()
-                    val category = user.categories.find { it.id.value == uniqueId }
+                    val category = user.categories.notForUpdate().find { it.id.value == uniqueId }
 
                     if (category === null)
                         call.respondText(
@@ -38,13 +38,78 @@ fun Route.itemRouting() {
                         call.respond(category.items.notForUpdate().map { it.toModel() })
                 }
             }
-            post {
+            post("/modify{id?}") {
+                val uniqueId: UUID
+                val itemModificationModel: TodoItemModificationModel
+                val principal = call.principal<UserIdPrincipal>()!!
+
+                try {
+                    itemModificationModel = call.receive()
+                    uniqueId = UUID.fromString(call.parameters["id"])
+                } catch (_: Exception) {
+                    return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                }
+
+                DataFactory.transaction {
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val associatedItem = user.items.notForUpdate().find { it.id.value == uniqueId }
+
+                    if (associatedItem === null)
+                        call.respondText(
+                            "Item with the provided unique ID does not exist",
+                            status = HttpStatusCode.BadRequest
+                        )
+                    else if (associatedItem.modifiedTime > itemModificationModel.modifiedTime)
+                        call.respondText("Item on the server is more recent", status = HttpStatusCode.NotModified)
+                    else {
+                        val itemToModify = TodoItem.findById(associatedItem.id)!!
+
+                        itemToModify.name = itemModificationModel.name ?: itemToModify.name
+                        itemToModify.deadline = itemModificationModel.deadline ?: itemToModify.deadline
+                        itemToModify.description = itemModificationModel.description ?: itemToModify.description
+                        itemToModify.importance = itemModificationModel.importance ?: itemToModify.importance
+                        itemToModify.favoured = itemModificationModel.favoured ?: itemToModify.favoured
+                        itemToModify.modifiedTime = itemModificationModel.modifiedTime
+
+                        call.respondText("Item modified successfully", status = HttpStatusCode.Accepted)
+                    }
+
+                }
+            }
+            delete("/delete{id?}") {
+                val uniqueId: UUID
+                val principal = call.principal<UserIdPrincipal>()!!
+
+                try {
+                    uniqueId = UUID.fromString(call.parameters["id"])
+                } catch (_: Exception) {
+                    return@delete call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                }
+
+                DataFactory.transaction {
+                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val associatedItem = user.items.notForUpdate().find { it.id.value == uniqueId }
+
+                    if (associatedItem === null)
+                        call.respondText(
+                            "Item with the provided unique ID does not exist",
+                            status = HttpStatusCode.BadRequest
+                        )
+                    else {
+                        val itemToDelete = TodoItem.findById(associatedItem.id)!!
+
+                        itemToDelete.delete()
+                        call.respondText("Item deleted successfully", status = HttpStatusCode.OK)
+                    }
+                }
+            }
+            post("/add") {
                 val todoItemModel: TodoItemModel
                 val principal = call.principal<UserIdPrincipal>()!!
 
                 try {
                     todoItemModel = call.receive()
-                } catch (_: ContentTransformationException) {
+                } catch (_: Exception) {
                     return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
                 }
 
@@ -74,68 +139,7 @@ fun Route.itemRouting() {
                     }
                 }
 
-                call.respondText("Category added successfully.", status = HttpStatusCode.Created)
-            }
-            post("{id?}") {
-                val uniqueId: UUID
-                val todoItemModel: TodoItemModificationModel
-                val principal = call.principal<UserIdPrincipal>()!!
-
-                try {
-                    todoItemModel = call.receive()
-                    uniqueId = UUID.fromString(call.parameters["id"])
-                } catch (_: RuntimeException) {
-                    return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
-                }
-
-                DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
-                    val existingItem = user.items.find { it.id.value == uniqueId }
-
-                    if (existingItem === null)
-                        call.respondText(
-                            "Item with the provided unique ID does not exist",
-                            status = HttpStatusCode.BadRequest
-                        )
-                    else if (existingItem.modifiedTime > todoItemModel.modifiedTime)
-                        call.respondText("Item on the server is more recent", status = HttpStatusCode.NotModified)
-                    else {
-                        existingItem.name = todoItemModel.name ?: existingItem.name
-                        existingItem.deadline = todoItemModel.deadline ?: existingItem.deadline
-                        existingItem.description = todoItemModel.description ?: existingItem.description
-                        existingItem.importance = todoItemModel.importance ?: existingItem.importance
-                        existingItem.favoured = todoItemModel.favoured ?: existingItem.favoured
-                        existingItem.modifiedTime = todoItemModel.modifiedTime
-
-                        call.respondText("Item modified successfully.", status = HttpStatusCode.Accepted)
-                    }
-
-                }
-            }
-            delete("{id?}") {
-                val uniqueId: UUID
-                val principal = call.principal<UserIdPrincipal>()!!
-
-                try {
-                    uniqueId = UUID.fromString(call.parameters["id"])
-                } catch (_: IllegalArgumentException) {
-                    return@delete call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
-                }
-
-                DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
-                    val existingItem = user.items.find { it.id.value == uniqueId }
-
-                    if (existingItem === null)
-                        call.respondText(
-                            "Item with the provided unique ID does not exist",
-                            status = HttpStatusCode.BadRequest
-                        )
-                    else {
-                        existingItem.delete()
-                        call.respondText("Item deleted successfully.", status = HttpStatusCode.OK)
-                    }
-                }
+                call.respondText("Category added successfully", status = HttpStatusCode.Created)
             }
         }
     }
