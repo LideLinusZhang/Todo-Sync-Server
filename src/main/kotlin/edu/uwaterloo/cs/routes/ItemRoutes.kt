@@ -3,6 +3,9 @@ package edu.uwaterloo.cs.routes
 import edu.uwaterloo.cs.data.*
 import edu.uwaterloo.cs.todo.lib.TodoItemModel
 import edu.uwaterloo.cs.todo.lib.TodoItemModificationModel
+import io.github.smiley4.ktorswaggerui.dsl.delete
+import io.github.smiley4.ktorswaggerui.dsl.get
+import io.github.smiley4.ktorswaggerui.dsl.post
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -15,14 +18,28 @@ import java.util.*
 fun Route.itemRouting() {
     authenticate("auth-digest") {
         route("/item") {
-            get("{categoryUniqueId?}") {
+            get("{categoryUniqueId?}", {
+                description = "Obtain all todo items that belong to a user and under a given category."
+                response {
+                    HttpStatusCode.OK to {
+                        description = "A list of all todo items that belong to the user and under the category"
+                        body<List<TodoItemModel>>()
+                    }
+                    HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
+                    HttpStatusCode.BadRequest to {
+                        description =
+                            "Category with the provided unique ID does not exist," +
+                                    " or the unique ID is in incorrect format."
+                    }
+                }
+            }) {
                 val principal = call.principal<UserIdPrincipal>()!!
                 val uniqueId: UUID
 
                 try {
                     uniqueId = UUID.fromString(call.parameters["categoryUniqueId"])
                 } catch (_: Exception) {
-                    return@get call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                    return@get call.respondText("Unique ID is in incorrect format", status = HttpStatusCode.BadRequest)
                 }
 
                 DataFactory.transaction {
@@ -38,7 +55,19 @@ fun Route.itemRouting() {
                         call.respond(category.items.notForUpdate().map { it.toModel() })
                 }
             }
-            post("/modify{id?}") {
+            post("/modify{id?}", {
+                description = "Modify an existing todo category of a user."
+                request { body<TodoItemModificationModel>() }
+                response {
+                    HttpStatusCode.Created to { description = "Successful Request" }
+                    HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
+                    HttpStatusCode.BadRequest to {
+                        description =
+                            "The request JSON or unique ID is in incorrect format, or the unique ID does not exist."
+                    }
+                    HttpStatusCode.NotModified to { description = "Item on the server is more recent." }
+                }
+            }) {
                 val uniqueId: UUID
                 val itemModificationModel: TodoItemModificationModel
                 val principal = call.principal<UserIdPrincipal>()!!
@@ -47,7 +76,10 @@ fun Route.itemRouting() {
                     itemModificationModel = call.receive()
                     uniqueId = UUID.fromString(call.parameters["id"])
                 } catch (_: Exception) {
-                    return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                    return@post call.respondText(
+                        "Unique ID or request JSON is in incorrect format",
+                        status = HttpStatusCode.BadRequest
+                    )
                 }
 
                 DataFactory.transaction {
@@ -76,7 +108,17 @@ fun Route.itemRouting() {
 
                 }
             }
-            delete("/delete{id?}") {
+            delete("/delete{id?}", {
+                description = "Delete an existing todo item of a user."
+                request { pathParameter<UUID>("id") { description = "Unique ID of the item" } }
+                response {
+                    HttpStatusCode.OK to { description = "Successful Request" }
+                    HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
+                    HttpStatusCode.BadRequest to {
+                        description = "The unique ID is in incorrect format or does not exist."
+                    }
+                }
+            }) {
                 val uniqueId: UUID
                 val principal = call.principal<UserIdPrincipal>()!!
 
@@ -103,14 +145,29 @@ fun Route.itemRouting() {
                     }
                 }
             }
-            post("/add") {
+            post("/add", {
+                description = "Add a todo item to a user."
+                request { body<TodoItemModel>() }
+                response {
+                    HttpStatusCode.Created to { description = "Successful Request" }
+                    HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
+                    HttpStatusCode.BadRequest to {
+                        description =
+                            "The request JSON is in incorrect format, " +
+                                    "or the category with the provided unique ID does not exist."
+                    }
+                }
+            }) {
                 val todoItemModel: TodoItemModel
                 val principal = call.principal<UserIdPrincipal>()!!
 
                 try {
                     todoItemModel = call.receive()
                 } catch (_: Exception) {
-                    return@post call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
+                    return@post call.respondText(
+                        "The request JSON is in incorrect format.",
+                        status = HttpStatusCode.BadRequest
+                    )
                 }
 
                 DataFactory.transaction {
@@ -139,7 +196,7 @@ fun Route.itemRouting() {
                     }
                 }
 
-                call.respondText("Category added successfully", status = HttpStatusCode.Created)
+                call.respondText("Item added successfully", status = HttpStatusCode.Created)
             }
         }
     }

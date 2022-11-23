@@ -1,3 +1,4 @@
+//file:noinspection GroovyUnusedAssignment
 plugins {
     id 'application'
     id 'org.jetbrains.kotlin.jvm' version '1.7.20'
@@ -25,6 +26,7 @@ repositories {
             header(HttpHeaderAuthentication)
         }
     }
+    maven { url "https://jitpack.io" }
 }
 
 dependencies {
@@ -45,6 +47,7 @@ dependencies {
     implementation "org.xerial:sqlite-jdbc:3.39.3.0"
     implementation "com.zaxxer:HikariCP:5.0.1"
     implementation "com.h2database:h2:2.1.214"
+    implementation "io.github.smiley4:ktor-swagger-ui:0.8.0"
 
     testImplementation "io.ktor:ktor-server-tests-jvm:$ktor_version"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
