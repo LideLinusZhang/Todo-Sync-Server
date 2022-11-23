@@ -47,7 +47,9 @@ fun Route.userRouting() {
         authenticate("auth-digest") {
             post("/change_password", {
                 description = "Change the user's passowrd after successful authentication."
-                request { body<ByteArray>() }
+                request {
+                    body<ByteArray> { description = "New password, in byte array." }
+                }
                 response {
                     HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
                     HttpStatusCode.Created to { description = "Successful request." }

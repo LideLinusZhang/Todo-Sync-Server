@@ -7,7 +7,7 @@ fun Application.configureSwagger() {
     install(SwaggerUI) {
         swagger {
             swaggerUrl = "swagger-ui"
-            forwardRoot = true
+            forwardRoot = false
         }
         info {
             title = "Todo RESTful APIs"
