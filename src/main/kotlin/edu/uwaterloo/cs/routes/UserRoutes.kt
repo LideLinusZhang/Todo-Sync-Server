@@ -7,6 +7,7 @@ import edu.uwaterloo.cs.data.OAuthUserInfo
 import edu.uwaterloo.cs.data.User
 import edu.uwaterloo.cs.data.Users
 import edu.uwaterloo.cs.todo.lib.UserModel
+import io.github.smiley4.ktorswaggerui.dsl.get
 import io.github.smiley4.ktorswaggerui.dsl.post
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -73,11 +74,20 @@ fun Route.userRouting(httpClient: HttpClient) {
             }
         }
         authenticate("auth-oauth-google") {
-            get("/login") {
+            get("/login", { description = "Login endpoint for Google OAuth." }) {
                 // Redirects to 'authorizeUrl' automatically
             }
 
-            get("/callback") {
+            get("/callback", {
+                description = "Callback of Google OAuth"
+                response {
+                    HttpStatusCode.OK to {
+                        description = "A JWT token for authentication, valid for 10 minutes."
+                        body<String>()
+                    }
+                    HttpStatusCode.Unauthorized
+                }
+            }) {
                 val principal: OAuthAccessTokenResponse.OAuth2? = call.principal()
 
                 if (principal !== null) {
@@ -93,10 +103,10 @@ fun Route.userRouting(httpClient: HttpClient) {
 
                         val token = JWT.create()
                             .withClaim("username", userInfo.id)
-                            .withExpiresAt(Date(System.currentTimeMillis() + 60000))
+                            .withExpiresAt(Date(System.currentTimeMillis() + 600000))
                             .sign(Algorithm.HMAC256(System.getenv("JWT_SECRET")))
 
-                        call.respond(hashMapOf("token" to token))
+                        call.respond(token)
                     }
                 }
             }
