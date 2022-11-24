@@ -1,8 +1,12 @@
 package edu.uwaterloo.cs.routes
 
 import edu.uwaterloo.cs.data.*
+import edu.uwaterloo.cs.getUserName
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModel
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModificationModel
+import io.github.smiley4.ktorswaggerui.dsl.delete
+import io.github.smiley4.ktorswaggerui.dsl.get
+import io.github.smiley4.ktorswaggerui.dsl.post
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -15,15 +19,33 @@ import java.util.*
 fun Route.categoryRouting() {
     authenticate("auth-digest") {
         route("/category") {
-            get {
-                val principal = call.principal<UserIdPrincipal>()!!
+            get({
+                description = "Obtain all todo categories that belong to a user."
+                response {
+                    HttpStatusCode.OK to {
+                        description = "A list of all todo categories that belong to the user"
+                        body<List<TodoCategoryModel>>()
+                    }
+                    HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
+                }
+            }) {
+                val username = call.getUserName()
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     call.respond(user.categories.notForUpdate().map { it.toModel() })
                 }
             }
-            post("/add") {
+            post("/add", {
+                description = "Add a todo category to a user."
+                request { body<TodoCategoryModel>() }
+                response {
+                    HttpStatusCode.Created to { description = "Successful Request" }
+                    HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
+                    HttpStatusCode.BadRequest to { description = "The request JSON is in incorrect format." }
+                    HttpStatusCode.Conflict to { description = "Category with the same name already exist." }
+                }
+            }) {
                 val todoCategoryModel: TodoCategoryModel
                 val principal = call.principal<UserIdPrincipal>()!!
 
@@ -56,10 +78,19 @@ fun Route.categoryRouting() {
                     }
                 }
             }
-            post("/modify{?id}") {
+            post("/modify{?id}", {
+                description = "Modify an existing todo category of a user."
+                request { body<TodoCategoryModificationModel>() }
+                response {
+                    HttpStatusCode.Created to { description = "Successful Request" }
+                    HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
+                    HttpStatusCode.BadRequest to { description = "The request JSON is in incorrect format." }
+                    HttpStatusCode.NotModified to { description = "Category on the server is more recent." }
+                }
+            }) {
                 val todoCategoryModel: TodoCategoryModificationModel
                 val uniqueId: UUID
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
 
                 try {
                     todoCategoryModel = call.receive()
@@ -69,7 +100,7 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     val associatedCategory = user.categories.notForUpdate().find { it.id.value == uniqueId }
 
                     if (associatedCategory === null) {
@@ -93,10 +124,19 @@ fun Route.categoryRouting() {
                     }
                 }
             }
-
-            delete("/delete{?id}") {
+            delete("/delete{?id}", {
+                description = "Delete an existing todo category of a user."
+                request { pathParameter<UUID>("id") { description = "Unique ID of the category" } }
+                response {
+                    HttpStatusCode.OK to { description = "Successful Request" }
+                    HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
+                    HttpStatusCode.BadRequest to {
+                        description = "The unique ID is in incorrect format or does not exist."
+                    }
+                }
+            }) {
                 val uniqueId: UUID
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
 
                 try {
                     uniqueId = UUID.fromString(call.parameters["id"])
@@ -105,12 +145,12 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     val associatedCategory = user.categories.notForUpdate().find { it.id.value == uniqueId }
 
                     if (associatedCategory === null) {
                         call.respondText(
-                            "Item with the provided unique ID does not exist",
+                            "Category with the provided unique ID does not exist",
                             status = HttpStatusCode.BadRequest
                         )
                     } else {
