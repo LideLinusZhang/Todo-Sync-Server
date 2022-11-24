@@ -1,6 +1,7 @@
 package edu.uwaterloo.cs.routes
 
 import edu.uwaterloo.cs.data.*
+import edu.uwaterloo.cs.getUserName
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModel
 import edu.uwaterloo.cs.todo.lib.TodoCategoryModificationModel
 import io.github.smiley4.ktorswaggerui.dsl.delete
@@ -28,10 +29,10 @@ fun Route.categoryRouting() {
                     HttpStatusCode.Unauthorized to { description = "User credential is incorrect." }
                 }
             }) {
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     call.respond(user.categories.notForUpdate().map { it.toModel() })
                 }
             }
@@ -89,7 +90,7 @@ fun Route.categoryRouting() {
             }) {
                 val todoCategoryModel: TodoCategoryModificationModel
                 val uniqueId: UUID
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
 
                 try {
                     todoCategoryModel = call.receive()
@@ -99,7 +100,7 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     val associatedCategory = user.categories.notForUpdate().find { it.id.value == uniqueId }
 
                     if (associatedCategory === null) {
@@ -135,7 +136,7 @@ fun Route.categoryRouting() {
                 }
             }) {
                 val uniqueId: UUID
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
 
                 try {
                     uniqueId = UUID.fromString(call.parameters["id"])
@@ -144,7 +145,7 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     val associatedCategory = user.categories.notForUpdate().find { it.id.value == uniqueId }
 
                     if (associatedCategory === null) {

@@ -1,6 +1,7 @@
 package edu.uwaterloo.cs.routes
 
 import edu.uwaterloo.cs.data.*
+import edu.uwaterloo.cs.getUserName
 import edu.uwaterloo.cs.todo.lib.TodoItemModel
 import edu.uwaterloo.cs.todo.lib.TodoItemModificationModel
 import io.github.smiley4.ktorswaggerui.dsl.delete
@@ -16,7 +17,7 @@ import org.jetbrains.exposed.sql.insert
 import java.util.*
 
 fun Route.itemRouting() {
-    authenticate("auth-digest") {
+    authenticate("auth-digest", "auth-jwt") {
         route("/item") {
             get("{categoryUniqueId?}", {
                 description = "Obtain all todo items that belong to a user and under a given category."
@@ -33,7 +34,7 @@ fun Route.itemRouting() {
                     }
                 }
             }) {
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
                 val uniqueId: UUID
 
                 try {
@@ -43,7 +44,7 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     val category = user.categories.notForUpdate().find { it.id.value == uniqueId }
 
                     if (category === null)
@@ -70,7 +71,7 @@ fun Route.itemRouting() {
             }) {
                 val uniqueId: UUID
                 val itemModificationModel: TodoItemModificationModel
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
 
                 try {
                     itemModificationModel = call.receive()
@@ -83,7 +84,7 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     val associatedItem = user.items.notForUpdate().find { it.id.value == uniqueId }
 
                     if (associatedItem === null)
@@ -120,7 +121,7 @@ fun Route.itemRouting() {
                 }
             }) {
                 val uniqueId: UUID
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
 
                 try {
                     uniqueId = UUID.fromString(call.parameters["id"])
@@ -129,7 +130,7 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     val associatedItem = user.items.notForUpdate().find { it.id.value == uniqueId }
 
                     if (associatedItem === null)
@@ -159,7 +160,7 @@ fun Route.itemRouting() {
                 }
             }) {
                 val todoItemModel: TodoItemModel
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
 
                 try {
                     todoItemModel = call.receive()
@@ -171,7 +172,7 @@ fun Route.itemRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
                     val category = user.categories.find { it.id.value == todoItemModel.categoryId }
 
                     if (category === null) {
