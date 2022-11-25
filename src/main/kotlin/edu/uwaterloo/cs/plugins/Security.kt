@@ -28,8 +28,8 @@ fun Application.configureSecurity(httpClient: HttpClient) {
             providerLookup = {
                 OAuthServerSettings.OAuth2ServerSettings(
                     name = "google",
-                    authorizeUrl = "https://accounts.google.com/o/oauth2/auth",
-                    accessTokenUrl = "https://accounts.google.com/o/oauth2/token",
+                    authorizeUrl = "https://accounts.google.com/o/oauth2/v2/auth",
+                    accessTokenUrl = "https://oauth2.googleapis.com/token",
                     requestMethod = HttpMethod.Post,
                     clientId = System.getenv("GOOGLE_CLIENT_ID"),
                     clientSecret = System.getenv("GOOGLE_CLIENT_SECRET"),
