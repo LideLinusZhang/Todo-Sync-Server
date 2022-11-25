@@ -91,7 +91,7 @@ fun Route.userRouting(httpClient: HttpClient) {
                 val principal: OAuthAccessTokenResponse.OAuth2? = call.principal()
 
                 if (principal !== null) {
-                    val userInfo = httpClient.get("https://www.googleapis.com/oauth2/v2/userinfo") {
+                    val userInfo = httpClient.get("https://www.googleapis.com/auth/userinfo.profile") {
                         headers {
                             append(HttpHeaders.Authorization, "Bearer ${principal.accessToken}")
                         }
