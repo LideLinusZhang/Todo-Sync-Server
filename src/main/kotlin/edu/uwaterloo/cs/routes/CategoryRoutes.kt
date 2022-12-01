@@ -17,7 +17,7 @@ import org.jetbrains.exposed.sql.insert
 import java.util.*
 
 fun Route.categoryRouting() {
-    authenticate("auth-digest") {
+    authenticate("auth-digest", "auth-jwt") {
         route("/category") {
             get({
                 description = "Obtain all todo categories that belong to a user."
