@@ -1,17 +1,12 @@
 package edu.uwaterloo.cs.routes
 
-import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
 import edu.uwaterloo.cs.data.DataFactory
-import edu.uwaterloo.cs.data.OAuthUserInfo
 import edu.uwaterloo.cs.data.User
 import edu.uwaterloo.cs.data.Users
+import edu.uwaterloo.cs.getUserName
 import edu.uwaterloo.cs.todo.lib.UserModel
 import io.github.smiley4.ktorswaggerui.dsl.get
 import io.github.smiley4.ktorswaggerui.dsl.post
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -19,9 +14,8 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.and
-import java.util.*
 
-fun Route.userRouting(httpClient: HttpClient) {
+fun Route.userRouting() {
     route("/user") {
         post("/signup", {
             description = "Create an account on the server."
@@ -73,41 +67,16 @@ fun Route.userRouting(httpClient: HttpClient) {
                 return@post call.respondText("Password changed successfully.", status = HttpStatusCode.OK)
             }
         }
-        authenticate("auth-oauth-google") {
-            get("/login", { description = "Login endpoint for Google OAuth." }) {
-                // Redirects to 'authorizeUrl' automatically
-            }
+        authenticate("auth-jwt") {
+            get("/login", { description = "Login endpoint for OAuth." }) {
+                val username = call.getUserName()
 
-            get("/callback", {
-                description = "Callback of Google OAuth"
-                response {
-                    HttpStatusCode.OK to {
-                        description = "A JWT token for authentication, valid for 10 minutes."
-                        body<String>()
-                    }
-                    HttpStatusCode.Unauthorized
-                }
-            }) {
-                val principal: OAuthAccessTokenResponse.OAuth2? = call.principal()
-
-                if (principal !== null) {
-                    val userInfo = httpClient.get("https://www.googleapis.com/userinfo/v2/me") {
-                        headers {
-                            append(HttpHeaders.Authorization, "Bearer ${principal.accessToken}")
-                        }
-                    }.body<OAuthUserInfo>()
-
-                    DataFactory.transaction {
-                        if (User.find { Users.name eq userInfo.id and Users.byOAuth }.empty())
-                            User.new { name = userInfo.id; byOAuth = true }
-
-                        val token = JWT.create()
-                            .withClaim("username", userInfo.id)
-                            .withExpiresAt(Date(System.currentTimeMillis() + 600000))
-                            .sign(Algorithm.HMAC256(System.getenv("JWT_SECRET")))
-
-                        call.respond(token)
-                    }
+                DataFactory.transaction {
+                    if (User.find { Users.name eq username and Users.byOAuth }.empty()) {
+                        User.new { name = username; byOAuth = true }
+                        call.respondText("New user, sign-up completed.", status = HttpStatusCode.Created)
+                    } else
+                        call.respondText("Existing user confirmed.", status = HttpStatusCode.OK)
                 }
             }
         }
