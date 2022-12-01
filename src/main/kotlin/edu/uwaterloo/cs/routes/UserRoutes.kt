@@ -68,7 +68,12 @@ fun Route.userRouting() {
             }
         }
         authenticate("auth-jwt") {
-            get("/login", { description = "Login endpoint for OAuth." }) {
+            get("/login", {
+                description = "Login endpoint for OAuth."
+                request {
+                    body<String>{description = "JWT Token"}
+                }
+            }) {
                 val username = call.getUserName()
 
                 DataFactory.transaction {
