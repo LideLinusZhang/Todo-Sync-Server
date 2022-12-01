@@ -42,6 +42,13 @@ fun Application.configureSecurity(httpClient: HttpClient) {
         jwt("auth-jwt") {
             realm = edu.uwaterloo.cs.todo.lib.realm
             verifier(JWT.require(Algorithm.HMAC256(System.getenv("JWT_SECRET"))).build())
+            validate { credential ->
+                if (!credential.payload.getClaim("username").asString().isNullOrEmpty()) {
+                    JWTPrincipal(credential.payload)
+                } else {
+                    null
+                }
+            }
         }
     }
 }
