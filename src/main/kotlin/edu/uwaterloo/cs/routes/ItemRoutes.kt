@@ -33,6 +33,7 @@ fun Route.itemRouting() {
                                     " or the unique ID is in incorrect format."
                     }
                 }
+                request { pathParameter<UUID>("categoryUniqueId") }
             }) {
                 val username = call.getUserName()
                 val uniqueId: UUID
