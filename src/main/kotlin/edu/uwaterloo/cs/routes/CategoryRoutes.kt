@@ -47,7 +47,7 @@ fun Route.categoryRouting() {
                 }
             }) {
                 val todoCategoryModel: TodoCategoryModel
-                val principal = call.principal<UserIdPrincipal>()!!
+                val username = call.getUserName()
 
                 try {
                     todoCategoryModel = call.receive()
@@ -56,7 +56,7 @@ fun Route.categoryRouting() {
                 }
 
                 DataFactory.transaction {
-                    val user = User.find { Users.name eq principal.name }.notForUpdate().first()
+                    val user = User.find { Users.name eq username }.notForUpdate().first()
 
                     if (user.categories.any { it.name == todoCategoryModel.name }) {
                         call.respondText(
