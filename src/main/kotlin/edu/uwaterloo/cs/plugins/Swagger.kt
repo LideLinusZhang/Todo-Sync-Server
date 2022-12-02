@@ -1,6 +1,9 @@
 package edu.uwaterloo.cs.plugins
 
+import edu.uwaterloo.cs.host
+import edu.uwaterloo.cs.port
 import io.github.smiley4.ktorswaggerui.SwaggerUI
+import io.ktor.http.*
 import io.ktor.server.application.*
 
 fun Application.configureSwagger() {
@@ -15,7 +18,7 @@ fun Application.configureSwagger() {
             description = "RESTful APIs currently supported by the Todo Server."
         }
         server {
-            url = "http://localhost:8080"
+            url = URLBuilder(host = host, port = port).buildString()
             description = "Todo Server"
         }
     }

@@ -7,7 +7,7 @@ plugins {
 }
 
 group "edu.uwaterloo.cs"
-version "0.0.1"
+version "1.0.0"
 mainClassName = "edu.uwaterloo.cs.ApplicationKt"
 
 def isDevelopment = project.ext.has("development")

@@ -14,7 +14,7 @@ val port: Int = System.getenv("PORT").toInt()
 val host: String = System.getenv("HOST")
 
 fun main() {
-    embeddedServer(Netty, port = port, host = host, module = Application::configureServer).start(wait = true)
+    embeddedServer(Netty, port = port, host = "0.0.0.0", module = Application::configureServer).start(wait = true)
 }
 
 fun ApplicationCall.getUserName(): String {
