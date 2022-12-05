@@ -10,13 +10,11 @@ import io.ktor.server.auth.jwt.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 
+val port: Int = System.getenv("PORT").toInt()
+val host: String = System.getenv("HOST")
+
 fun main() {
-    embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
-        configureSecurity()
-        configureSerialization()
-        configureRouting()
-        configureSwagger()
-    }.start(wait = true)
+    embeddedServer(Netty, port = port, host = "0.0.0.0", module = Application::configureServer).start(wait = true)
 }
 
 fun ApplicationCall.getUserName(): String {
@@ -25,4 +23,11 @@ fun ApplicationCall.getUserName(): String {
         is JWTPrincipal -> principal.payload.getClaim("username").asString()
         else -> String()
     }
+}
+
+fun Application.configureServer() {
+    configureSecurity()
+    configureSerialization()
+    configureRouting()
+    configureSwagger()
 }

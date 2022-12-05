@@ -71,7 +71,7 @@ fun Route.userRouting() {
             get("/login", {
                 description = "Login endpoint for OAuth."
                 request {
-                    body<String>{description = "JWT Token"}
+                    body<String> { description = "JWT Token" }
                 }
             }) {
                 val username = call.getUserName()
